@@ -1,0 +1,18 @@
+#Bugzilla user info
+username=skramer
+password=kramertest
+
+#Findbugs server
+server=https://findbugs-seg.itos.redhat.com/
+
+#Valid SalesForce Cases (Wildcard operator automatically applied to end,
+#so "Red Hat Customer Portal" would include "Red Hat Customer Portal (Dev)")
+salesforce=Red Hat Customer Portal
+salesforce=Red Hat Knowledge Base
+
+#ignore=Priority Tag Is Not Set
+
+ignore_closed_bugs=True
+require_sales_force=True
+test_from_log_file=False
+log_folder=logs/
