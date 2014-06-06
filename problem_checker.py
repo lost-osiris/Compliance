@@ -6,9 +6,11 @@ class ProblemChecker:
    nvr_matcher = re.compile(r'rhel-(\d+).(\d+)')
    z_stream_matcher = re.compile(r'rhel-\d+.\d+.z')
    
+   
    def __init__(self, config = None):
       self.current_sf = False
       self.current_nvr = None
+      self.current_zstream = False
       self.c = config
       self.checks = {}
       if not config:
@@ -24,29 +26,67 @@ class ProblemChecker:
    ''' IN ORDER TO BE EXECUTED   '''
    
    def __no_relevant_sales_force_case_pcheck(self, bug):
-      if not self.__req_sf():
-         desc = ("This bug is not associated with any of the Sales Force cases "
-            "that this compliance filter is set up to handle (%s). If this is "
-            "by mistake, attach an appropriate SF case and reanalyze for the "
-            "complete list of problems.") % ", ".join(self.c.valid_sales_force)
-         self.__add_problem(bug, desc)
+      if self.__req_sf(): return
+      desc = ("this bug is not associated with any of the Sales Force cases "
+         "that this compliance filter is set up to handle (%s). If this is "
+         "by mistake, attach an appropriate SF case and reanalyze for the "
+         "complete list of problems.") % ", ".join(self.c.valid_sales_force)
+      self.__add_problem(bug, desc)
    
    
-   def __missing_or_incorrect_tracker_pcheck(self, bug):
-      pass
+   def __on_z_stream_without_gss_approved_pcheck(self, bug):
+      if not self.__req_sf() or not self.current_zstream: return
+      if "GSSApproved" in bug["cf_internal_whiteboard"]: return
+      zflags = [flag[0] for flag in self.current_nvr if flag[1]]
+      desc = ("this bug is flagged for z-stream (%s) but it does not "
+              "contain the 'GSSApproved' tag on the internal whiteboard. "
+              "Please add this tag to make this bug compliant.") % ", ".join(["%d.%d.z" % (f[0], f[1]) for f in zflags])
+      self.__add_problem(bug, desc)
+      
+      
+   def __gss_approved_without_z_stream_flag_pcheck(self, bug):
+      if not self.__req_sf() or  self.current_zstream: return
+      if not "GSSApproved" in bug["cf_internal_whiteboard"]: return
+      desc = ("this bug contains the 'GSSApproved' tag on its internal whiteboard. "
+              "However, it has no z-stream flag set. Please either set the z-stream "
+              "flag for the appropriate version or remove the GSSApproved tag from the "
+              "internal whiteboard.")
+      self.__add_problem(bug, desc)      
+         
+
+   def __on_tracker_without_corresponding_flag_set_pcheck(self, bug):
+      if not self.__req_sf(): return
+      for vers, tracker in self.c.trackers.iteritems():
+         if tracker in bug["blocks"] and not any(vers == flag[0] for flag in self.current_nvr):
+            desc = ("this bug is on the %d.%d GSS tracker (id=%s), but the %d.%d NVR flag is "
+                    "not set. Please either set the flag or remove this bug from the tracker")\
+                    % (vers[0], vers[1], tracker, vers[0], vers[1])
+            self.__add_problem(bug, desc)
+            
+            
+   def __flag_set_without_corresponding_tracker_pcheck(self, bug):
+      if not self.__req_sf(): return
+      for vers in self.current_nvr:
+         vers = vers[0]
+         if vers in self.c.trackers and not self.c.trackers[vers] in bug["blocks"]:
+            desc = ("this bug has the %d.%d NVR flag set, but is not on the %d.%d GSS tracker (id=%s). "
+                    " Please either add the tracker or remove the flag from this bug")\
+                    % (vers[0], vers[1], vers[0], vers[1], self.c.trackers[vers])
+            self.__add_problem(bug, desc)      
       
       
    def __nvr_flag_is_missing_pcheck(self, bug):
-      if self.__req_sf() and len(self.current_nvr) == 0:
-         desc = ("bug does not have an NVR (name-version-revision) flag set; "
-                 "add a flag in the form 'rhel-#.#.#' to resolve.")
-         self.__add_problem(bug, desc)
+      if not self.__req_sf() or len(self.current_nvr) > 0: return
+      desc = ("bug does not have an NVR (name-version-revision) flag set; "
+              "add a flag in the form 'rhel-#.#.#' to resolve.")
+      self.__add_problem(bug, desc)
 
 
    def __nvr_flag_is_outdated_pcheck(self, bug):
+      #If has SF and at least 1 NVR flag
       if self.__req_sf() and len(self.current_nvr) > 0:
          has_a_current_flag = False
-         highest = self.current_nvr[0][0]
+         highest = self.current_nvr[0][0] #Keep track of highest NVR flag
          for flag in self.current_nvr:
             if flag[0][0] > highest[0] or (flag[0][0] == highest[0] and flag[0][1] > highest[1]):
                highest = flag[0] 
@@ -104,9 +144,16 @@ class ProblemChecker:
          for check in self.checks:
             if not self.checks[check] in self.c.ignore:
                check(bug)
+            #No problems were added. It passed.
+            if not bug["id"] in self.problems:
+               self.__pass_spacefiller(bug)
                
       #Report back results
       return self.problems
+
+
+   def __pass_spacefiller(self, bug):
+      self.__add_problem(bug, "No problems found.")
 
 
    def __has_sales_force_case(self, bug):
@@ -126,11 +173,13 @@ class ProblemChecker:
    
    def __get_nvr(self, bug):
       self.current_nvr = []
+      self.current_zstream = False
       for flag in bug['flags']:
          match = ProblemChecker.nvr_matcher.search(flag["name"])
          zstream = False
          if match:
             if ProblemChecker.z_stream_matcher.search(flag["name"]):
+               self.current_zstream = True
                zstream = True
             self.current_nvr.append(((int(match.group(1)), int(match.group(2))), zstream))
             
