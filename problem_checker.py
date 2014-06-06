@@ -153,7 +153,9 @@ class ProblemChecker:
 
 
    def __pass_spacefiller(self, bug):
-      self.__add_problem(bug, "No problems found.")
+      bug_id = bug["id"]
+      if bug_id not in self.problems:
+         self.problems[bug_id] = {"data" : bug, "problems" : []}
 
 
    def __has_sales_force_case(self, bug):
