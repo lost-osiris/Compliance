@@ -82,7 +82,5 @@ class Config:
       self.phases = {}
       self.ignore = []
       self.valid_sales_force = []
-      user_config = str(os.path.dirname(os.path.abspath(__file__))) + "/" + user_config
-      auto_config = str(os.path.dirname(os.path.abspath(__file__))) + "/" + auto_config
       self.read_config(user_config, self.__process_user)
       self.read_config(auto_config, self.__process_auto)

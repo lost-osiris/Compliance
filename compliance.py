@@ -6,15 +6,20 @@ import os
 
 def check_compliance(is_id, search, email=None, password=None, server=None):
    global config
-   config = cnfg.Config()
+   user_config = str(os.path.dirname(os.path.abspath(__file__))) + "/user_config.txt"
+   auto_config = str(os.path.dirname(os.path.abspath(__file__))) + "/auto_config.txt"
+   config = cnfg.Config(user_config, auto_config)
    if not email: email = config.user_email
    if not password: password = config.user_pass
    if not server: server = config.server
+   
+   #For testing/debugging
    if config.test_from_log_file:
       bugs = read_bugs()
    else:
       bugs = get_bugs(is_id, search, email, password, server)
       log_bugs(bugs)
+
    p = problem_checker.ProblemChecker(config)
    problems = p.find_problems(bugs)
    write_problems(problems)
