@@ -1,15 +1,11 @@
 Bug 1100913
   -Priority Tag Is Not Set
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
   -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
 
 Bug 1053046
   -Nvr Flag Is Outdated: the NVR flag for this bug (6.5) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
-
-Bug 997377
-  -Nvr Flag Is Outdated: none of the NVR flags (highest=6.6) for this bug match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
-
-Bug 1028335
-  -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
+  -On Z Stream Without Gss Approved: this bug is flagged for z-stream (6.5.z) but it does not contain the 'GSSApproved' tag on the internal whiteboard. Please add this tag to make this bug compliant.
 
 Bug 1012577
   -Priority Tag Is Not Set
@@ -17,39 +13,35 @@ Bug 1012577
 
 Bug 1042519
   -Priority Tag Is Not Set
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
   -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
+
+Bug 997377
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
+  -Nvr Flag Is Outdated: none of the NVR flags (highest=6.6) for this bug match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
 
 Bug 1028643
-  -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
-
-Bug 1071290
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
   -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
 
 Bug 1093869
   -Priority Tag Is Not Set
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
+  -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
+
+Bug 1028335
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
   -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
 
 Bug 953088
   -Priority Tag Is Not Set
   -Nvr Flag Is Outdated: none of the NVR flags (highest=6.6) for this bug match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
 
-No Relevant Sales Force Case: This bug is not associated with any of the Sales Force cases that this compliance filter is set up to handle (Red Hat Customer Portal, Red Hat Knowledge Base). If this is by mistake, attach an appropriate SF case and reanalyze for the complete list of problems.
-  -1053044
-  -1053043
-  -876544
-  -1020803
-  -1010429
-  -1101172
-  -1009959
-  -1022459
-  -1101171
-  -1086257
-  -1075033
-  -1075032
-  -1023044
-  -1023043
-  -1008042
-  -1027197
-  -993580
-  -949264
-  -783306
+Bug 1071290
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
+  -Nvr Flag Is Outdated: the NVR flag for this bug (6.6) does not match any of the current appropriate versions of RHEL. Please add an NVR flag with one of the following versions: 6.7, 7.1
+
+Bug 1099832
+  -Flag Set Without Corresponding Tracker: this bug has the 6.6 NVR flag set, but is not on the 6.6 GSS tracker (id=994246).  Please either add the tracker or remove the flag from this bug
+  -Flag Set Without Corresponding Tracker: this bug has the 6.7 NVR flag set, but is not on the 6.7 GSS tracker (id=1075802).  Please either add the tracker or remove the flag from this bug
+

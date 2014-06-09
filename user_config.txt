@@ -14,5 +14,5 @@ salesforce=Red Hat Knowledge Base
 
 ignore_closed_bugs=True
 require_sales_force=True
-test_from_log_file=False
+test_from_log_file=True
 log_folder=logs/

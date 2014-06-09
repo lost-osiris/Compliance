@@ -31,7 +31,7 @@ class ProblemChecker:
          "that this compliance filter is set up to handle (%s). If this is "
          "by mistake, attach an appropriate SF case and reanalyze for the "
          "complete list of problems.") % ", ".join(self.c.valid_sales_force)
-      self.__add_problem(bug, desc)
+      self.__add_warning(bug, desc)
    
    
    def __on_z_stream_without_gss_approved_pcheck(self, bug):
@@ -129,6 +129,8 @@ class ProblemChecker:
    def find_problems(self, bugs):
       #Clear old problem set
       self.problems = {}
+      self.warnings = {}
+      self.passed = []
       
       #Go through all the bugs
       for bug in bugs['bugs']:
@@ -145,11 +147,11 @@ class ProblemChecker:
             if not self.checks[check] in self.c.ignore:
                check(bug)
             #No problems were added. It passed.
-            if not bug["id"] in self.problems:
-               self.__pass_spacefiller(bug)
+            if not bug["id"] in self.problems and not bug["id"] in self.warnings:
+               self.passed.append(bug["id"])
                
       #Report back results
-      return self.problems
+      return self.problems, self.warnings, self.passed
 
 
    def __pass_spacefiller(self, bug):
@@ -193,4 +195,13 @@ class ProblemChecker:
       if bug_id not in self.problems:
          self.problems[bug_id] = {"data" : bug, "problems" : []}
       self.problems[bug_id]["problems"].append({"id" : problem_id, "desc" : desc})
+      
+      
+   def __add_warning(self, bug, desc = ""):
+      #Transform caller function into an ID
+      warning_id = " ".join(inspect.stack()[1][3].split("_")[2 : -1]).title()
+      bug_id = bug['id']
+      if bug_id not in self.warnings:
+         self.warnings[bug_id] = {"data" : bug, "warnings" : []}
+      self.warnings[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
 
