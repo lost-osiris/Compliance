@@ -2,12 +2,12 @@ import inspect, re
 import config as cnfg
 
 class ProblemChecker:
-   
+
    nvr_matcher = re.compile(r'rhel-(\d+).(\d+)')
    z_stream_matcher = re.compile(r'rhel-\d+.\d+.z')
-   
+
    severities = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "unspecified": 4}
-   
+
    def __init__(self, config = None):
       self.current_sf = False
       self.current_nvr = None
@@ -26,8 +26,32 @@ class ProblemChecker:
    ''' AND MUST END WITH _pcheck '''
    ''' IN ORDER TO BE EXECUTED   '''
    
-   def __uncloned_z_stream_bug_not_flagged_for_a_current_version_pcheck(self, bug):
-      if not self.current_sf or not self.current_zstream or "zstream" in [word.lower for word in bug["keywords"]]: return
+   def __uncloned_on_z_stream_missing_ack_pcheck(self, bug):
+      if not self.current_sf or not self.current_zstream or "zstream" in [word.lower() for word in bug["keywords"]]: return
+      pmack = False
+      develack = False
+      qaack = False
+      
+      for flag in bug["flags"]:
+         if flag["status"] == "+":
+            if flag["name"] == "pm_ack":
+               pmack = True
+            elif flag["name"] == "devel_ack":
+               develack = True
+            elif flag["name"] == "qa_ack":
+               qaack = True               
+      
+      if not pmack or not develack or not qaack:
+         desc = ("this bug cannot move forward in the zstream process until it gets approval from PM, "
+                 "Dev, and QA. Please have the following flags set to approved (+) in order to meet "
+                 "this requirement:%s%s%s") % ("" if pmack else " pm_ack",
+                                               "" if develack else " devel_ack",
+                                               "" if qaack else " qa_ack")
+         self.__add_problem(bug, desc)
+
+
+   def __uncloned_on_z_stream_but_not_flagged_for_a_current_version_pcheck(self, bug):
+      if not self.current_sf or not self.current_zstream or "zstream" in [word.lower() for word in bug["keywords"]]: return
       for flag in self.current_nvr:
          if flag[1]: continue #Looking for non-zstream flags
          if flag[0] in self.c.phases and self.c.phases[flag[0]] in ("Planning", "Pending"):
@@ -38,7 +62,8 @@ class ProblemChecker:
             self.__add_problem(bug, desc)
             return
       desc = ("this bug is flagged for zstream, but does not have another flag for any "
-              "current version of RHEL")
+              "current version of RHEL. A current version flag is required for the bug "
+              "to move forward in the zstream process, so please add one.")
       self.__add_problem(bug, desc)        
          
    
@@ -133,12 +158,12 @@ class ProblemChecker:
 
    def __priority_tag_is_not_set_pcheck(self, bug):
       if self.__req_sf() and "unspecified" in bug['priority']:
-         self.__add_problem(bug)
+         self.__add_problem(bug, "the priority tag for this bug is unspecified. Please set it.")
          
          
    def __severity_tag_is_not_set_pcheck(self, bug):
       if self.__req_sf() and "unspecified" in bug['severity']:
-         self.__add_problem(bug)
+         self.__add_problem(bug, "the severity tag for this bug is unspecified. Please set it.")
          
    ''' END OF PROBLEM CHECKS'''
 
@@ -164,9 +189,10 @@ class ProblemChecker:
          for check in self.checks:
             if not self.checks[check] in self.c.ignore:
                check(bug)
-            #No problems were added. It passed.
-            if not bug["id"] in self.info:
-               self.passed.append(bug["id"])
+
+         #No problems were added. It passed.
+         if not bug["id"] in self.info:
+            self.passed.append(bug["id"])
       
       self.info = [self.info[bug] for bug in self.info]
       #Sort by: does it have problems, severity, priority, id
@@ -227,4 +253,3 @@ class ProblemChecker:
          self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
                                   "parents": {}, "clones": {}, "status": 0}
       self.info[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
-

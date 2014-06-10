@@ -24,8 +24,8 @@ def check_compliance(is_id, search, email=None, password=None, server=None):
 
    p = problem_checker.ProblemChecker(config)
    info, passed, ignored = p.find_problems(bugs)
-   write_problems(info)
    print "Found %d bug%s with problems" % (len(info), "s" if len(info) != 1 else "")
+   write_problems(info)
    return info, passed, ignored
    
 
