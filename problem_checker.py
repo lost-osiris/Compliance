@@ -6,6 +6,7 @@ class ProblemChecker:
    nvr_matcher = re.compile(r'rhel-(\d+).(\d+)')
    z_stream_matcher = re.compile(r'rhel-\d+.\d+.z')
    
+   severities = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "unspecified": 4}
    
    def __init__(self, config = None):
       self.current_sf = False
@@ -25,6 +26,22 @@ class ProblemChecker:
    ''' AND MUST END WITH _pcheck '''
    ''' IN ORDER TO BE EXECUTED   '''
    
+   def __uncloned_z_stream_bug_not_flagged_for_a_current_version_pcheck(self, bug):
+      if not self.current_sf or not self.current_zstream or "zstream" in [word.lower for word in bug["keywords"]]: return
+      for flag in self.current_nvr:
+         if flag[1]: continue #Looking for non-zstream flags
+         if flag[0] in self.c.phases and self.c.phases[flag[0]] in ("Planning", "Pending"):
+            #Check flag status
+            if flag[2] == "+": return
+            desc = ("this bug is flagged for zstream, but its associated current version ("
+                    "%d.%d) is not ack-ed (+ status on flag).") % (flag[0][0], flag[0][1])
+            self.__add_problem(bug, desc)
+            return
+      desc = ("this bug is flagged for zstream, but does not have another flag for any "
+              "current version of RHEL")
+      self.__add_problem(bug, desc)        
+         
+   
    def __no_relevant_sales_force_case_pcheck(self, bug):
       if self.__req_sf(): return
       desc = ("this bug is not associated with any of the Sales Force cases "
@@ -36,7 +53,7 @@ class ProblemChecker:
    
    def __on_z_stream_without_gss_approved_pcheck(self, bug):
       if not self.__req_sf() or not self.current_zstream: return
-      if "GSSApproved" in bug["cf_internal_whiteboard"]: return
+      if "GSSApproved" in bug["cf_internal_whiteboard"] or "PMApproved" in bug["cf_internal_whiteboard"]: return
       zflags = [flag[0] for flag in self.current_nvr if flag[1]]
       desc = ("this bug is flagged for z-stream (%s) but it does not "
               "contain the 'GSSApproved' tag on the internal whiteboard. "
@@ -128,14 +145,15 @@ class ProblemChecker:
 
    def find_problems(self, bugs):
       #Clear old problem set
-      self.problems = {}
-      self.warnings = {}
+      self.info = {}
       self.passed = []
+      self.ignored = []
       
       #Go through all the bugs
-      for bug in bugs['bugs']:
+      for bug in bugs["bugs"]:
          #Ignore closed bugs
-         if self.c.ignore_closed_bugs and not bug['is_open'] == "True":
+         if self.c.ignore_closed_bugs and not bug["is_open"] == "True":
+            self.ignored.append(bug["id"])
             continue
          
          #Set class variables for use across functions
@@ -147,17 +165,19 @@ class ProblemChecker:
             if not self.checks[check] in self.c.ignore:
                check(bug)
             #No problems were added. It passed.
-            if not bug["id"] in self.problems and not bug["id"] in self.warnings:
+            if not bug["id"] in self.info:
                self.passed.append(bug["id"])
-               
+      
+      self.info = [self.info[bug] for bug in self.info]
+      #Sort by: does it have problems, severity, priority, id
+      self.info.sort(key = lambda bug: (0 if len(bug["problems"]) > 0 else 1,
+                                         self.severities[bug["data"]["severity"]],
+                                         self.severities[bug["data"]["priority"]],
+                                         bug["id"]))
+      self.passed.sort()
+      self.ignored.sort()
       #Report back results
-      return self.problems, self.warnings, self.passed
-
-
-   def __pass_spacefiller(self, bug):
-      bug_id = bug["id"]
-      if bug_id not in self.problems:
-         self.problems[bug_id] = {"data" : bug, "problems" : []}
+      return self.info, self.passed, self.ignored
 
 
    def __has_sales_force_case(self, bug):
@@ -185,23 +205,26 @@ class ProblemChecker:
             if ProblemChecker.z_stream_matcher.search(flag["name"]):
                self.current_zstream = True
                zstream = True
-            self.current_nvr.append(((int(match.group(1)), int(match.group(2))), zstream))
+            # Example: ((7, 1), False, +)
+            self.current_nvr.append(((int(match.group(1)), int(match.group(2))), zstream, flag["status"]))
             
 
    def __add_problem(self, bug, desc = ""):
       #Transform caller function into an ID
       problem_id = " ".join(inspect.stack()[1][3].split("_")[2 : -1]).title()
       bug_id = bug['id']
-      if bug_id not in self.problems:
-         self.problems[bug_id] = {"data" : bug, "problems" : []}
-      self.problems[bug_id]["problems"].append({"id" : problem_id, "desc" : desc})
+      if bug_id not in self.info:
+         self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
+                                  "parents": {}, "clones": {}, "status": 0}
+      self.info[bug_id]["problems"].append({"id" : problem_id, "desc" : desc})
       
       
    def __add_warning(self, bug, desc = ""):
       #Transform caller function into an ID
       warning_id = " ".join(inspect.stack()[1][3].split("_")[2 : -1]).title()
       bug_id = bug['id']
-      if bug_id not in self.warnings:
-         self.warnings[bug_id] = {"data" : bug, "warnings" : []}
-      self.warnings[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
+      if bug_id not in self.info:
+         self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
+                                  "parents": {}, "clones": {}, "status": 0}
+      self.info[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
 

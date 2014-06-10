@@ -50,6 +50,8 @@ class Config:
          self.test_from_log_file = True if value.lower() == "true" else False
       elif field == "log_folder":
          self.log_folder = str(os.path.dirname(os.path.abspath(__file__))) + "/" + value
+      elif field == "write_logs":
+         self.write_logs = True if value.lower() == "true" else False
       else:
          return False
       return True
@@ -58,21 +60,27 @@ class Config:
    def __process_auto(self, field, value):
       major_minor = field.split(".")
       vers = (int(major_minor[0]), int(major_minor[1]))
-      phase_tracker = value.split("|")
-      phases = phase_tracker[0].split(", ")
-      tracker = phase_tracker[1]
-      #Add phases mappings
-      for phase in phases:
-         self.phases[vers] = phase
-      #Add tracker mappings
-      if len(tracker) > 0:
-         self.trackers[vers] = tracker
+      if len(major_minor) > 2:
+         kernal = int(value.split("|")[0])
+         self.zstreams[vers] = kernal
+      else:
+         vers = (int(major_minor[0]), int(major_minor[1]))
+         phase_tracker = value.split("|")
+         phases = phase_tracker[0].split(", ")
+         tracker = phase_tracker[1]
+         #Add phases mappings
+         for phase in phases:
+            self.phases[vers] = phase
+         #Add tracker mappings
+         if len(tracker) > 0:
+            self.trackers[vers] = tracker
       return True
 
 
    def __init__(self, user_config = "user_config.txt", auto_config = "auto_config.txt"):
       self.ignore_closed_bugs = True
       self.require_sales_force = True
+      self.write_logs = False
       self.test_from_log_file = None
       self.user_email = None
       self.user_pass = None
@@ -80,6 +88,7 @@ class Config:
       self.log_folder = None
       self.trackers = {}
       self.phases = {}
+      self.zstreams = {}
       self.ignore = []
       self.valid_sales_force = []
       self.read_config(user_config, self.__process_user)

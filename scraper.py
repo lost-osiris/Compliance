@@ -9,7 +9,7 @@ import sys
 url = "https://pp.engineering.redhat.com/pp/data/rhel/"
 server = "https://findbugs-seg.itos.redhat.com/"
 tracker_form = "GSS_*_*_proposed"
-phases = {"Planning", "Development", "Testing", "Launch"}
+phases = {"Planning", "Development", "Testing", "Launch", "Maintenance"}
 last_relavent_version = 5
 
 
@@ -71,6 +71,8 @@ def __refine_version_info():
          closest_phase = None
          
          this_ver = None   #Tracks the hierarchy number of the info we're actually looking for
+         main_hier = None  #Trackers the hierarchy number of the maintenance phase
+         kernal = None
          found = False     #Did a valid phase exist for a given sub version (not a bad webage)?
          inside = False    #Was the current date inside one of these phases?
 
@@ -100,16 +102,25 @@ def __refine_version_info():
                   continue
                start = datetime.datetime.strptime(info[2], date_format)
                end = datetime.datetime.strptime(info[3], date_format)
-               found = True   #Valid phase was found for this version
+               
+               #Handle z-stream
+               if "Maintenance" in phase_name:
+                  if current_time >= start and current_time < end:
+                     main_hier = hier_num
+                     found = True
+                     continue
+               
+               #Valid non-maintenance phase was found for this version
                min_date = start if start < min_date else min_date
                max_date = end if end > max_date else max_date
+               found = True
                
                if current_time >= start:
                   #Set closest flag
                   if start > closest:
                      closest = start
                      closest_phase = phase_name
-                     
+                  
                   #Set phase info if valid
                   if current_time < end:
                      key = (major, minor)
@@ -118,7 +129,20 @@ def __refine_version_info():
                      version_data[key].append(str(phase_name))
                      inside = True
                      
-         #Check that versions are still relevant
+            #Find phase of z-stream
+            elif main_hier and hier_num.startswith(main_hier) and "Development" in phase_name:
+               this_kernal = int(hier_num.split(".")[3])
+               if current_time > datetime.datetime.strptime(info[3], date_format):
+                  continue
+               if this_kernal and kernal > this_kernal:
+                  continue
+               kernal = this_kernal
+                     
+         #Get z-stream dev kernal
+         if kernal:
+            version_data[(major, minor, "z")] = [kernal]
+            
+         #Check that versions are still relevant            
          if found and not inside:
             #Version has yet to enter life-cycle
             if min_date > current_time:
@@ -163,6 +187,7 @@ def __get_tracker_ids():
    global trackers
    trackers = {}
    for version in version_data:
+      if len(version) > 2: continue #ignore zstream
       track = tracker_form.replace("*", str(version[0]), 1)
       track = track.replace("*", str(version[1]), 1)
       values = {"username" : user_email, "password" : user_pass, "id" : track, "url" : "", "fields" : ""}
@@ -176,19 +201,20 @@ def __get_tracker_ids():
          pass
          #print "Tracker for %s does not exist. Skipping." % track
    print "Done."
-   return trackers
 
 
 def __update_config():
    #Make sure data has been scraped before we try to write it
-   assert version_data and trackers
+   global version_data, trackers
+   assert version_data and not trackers == None
    sys.stdout.write("Writing config file...")
-   f = open("../res/auto_config.txt", "w")
+   f = open("auto_config.txt", "w")
    keys = version_data.keys()
    keys.sort()
    for version in keys:
-      f.write("%d.%d=%s|%s\n" % (version[0], version[1], ", ".join(version_data[version]),\
-                                 trackers[version] if version in trackers else ""))
+      s1 = ".".join([str(v) for v in version])
+      s2 = ", ".join([str(v) for v in version_data[version]])
+      f.write("%s=%s|%s\n" % (s1, s2, trackers[version] if version in trackers else ""))
    f.flush()
    f.close()
    print "Done."

@@ -1,7 +1,10 @@
+5.10.z=7|
 5.11=Testing Phase|984996
 5.12=Pending|
+6.5.z=6|
 6.6=Development Phase|994246
 6.7=Pending|1075802
 7.0=Launch Phase|744882
+7.0.z=1|
 7.1=Planning Phase|1064025
 7.2=Pending|

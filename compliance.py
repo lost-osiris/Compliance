@@ -3,9 +3,9 @@ import requests
 import config as cnfg
 import problem_checker
 import os
-import extra_info as ex_in
+import copy
 
-def check_compliance(is_id, get_extra_info, search, email=None, password=None, server=None):
+def check_compliance(is_id, search, email=None, password=None, server=None):
    global config
    user_config = str(os.path.dirname(os.path.abspath(__file__))) + "/user_config.txt"
    auto_config = str(os.path.dirname(os.path.abspath(__file__))) + "/auto_config.txt"
@@ -23,17 +23,10 @@ def check_compliance(is_id, get_extra_info, search, email=None, password=None, s
       log_bugs(bugs)
 
    p = problem_checker.ProblemChecker(config)
-   problems, warnings, passed = p.find_problems(bugs)
-   write_problems(problems)
-   
-   print "Found %d bug%s with problems" % (len(problems), "s" if len(problems) != 1 else "")
-   
-   extra_info = None
-   if get_extra_info:
-      ei = ex_in.ExtraInfo(bugs, config)
-      extra_info = ei.get_info()
-   
-   return problems, warnings, passed, extra_info
+   info, passed, ignored = p.find_problems(bugs)
+   write_problems(info)
+   print "Found %d bug%s with problems" % (len(info), "s" if len(info) != 1 else "")
+   return info, passed, ignored
    
 
 def get_bugs(is_id, search):
@@ -54,26 +47,22 @@ def read_bugs():
 
 
 def log_bugs(bugs):
+   if not config.write_logs: return
+   print "Writing findbugs query results."
    f = open(config.log_folder + "results.txt", "w")
    f.write(simplejson.dumps(bugs, indent=2))
    f.flush()
    f.close()
 
 
-def write_problems(problems):
+def write_problems(info):
+   if not config.write_logs: return
+   print "Writing compliance results."
    file_dir = str(os.path.dirname(os.path.abspath(__file__))) + "/"
    f = open(file_dir + "logs/compliance.txt", "w")
-      
-   #Loop through bugs
-   for bug in problems:
-      f.write("Bug %s\n" % bug)
-      for problem in problems[bug]["problems"]:
-         f.write("  -%s" % problem["id"])
-         if len(problem["desc"]) > 0:
-            f.write(": %s" % problem["desc"])
-         f.write("\n")
-      f.write("\n")
-      
+   mod = [copy.copy(i) for i in info]
+   for i in mod: i["data"] = "ommited_info"
+   f.write(simplejson.dumps(mod, indent=2))
    f.flush()
    f.close()
 
