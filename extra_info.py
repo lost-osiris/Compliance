@@ -26,6 +26,9 @@ class ExtraInfo:
    
    def get_info(self):
       self.__filter()
+      
+      if len(self.need) == 0: return 
+      
       #Allows debugging from file
       if self.c.test_from_log_file:
          bugs = self.__read_bugs()
