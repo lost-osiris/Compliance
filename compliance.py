@@ -33,7 +33,7 @@ def get_bugs(is_id, search):
    values={"username" : config.user_email, "password" : config.user_pass,
            "id" : search if is_id else "",
            "url" : "" if is_id else search,
-           "fields" : "flags, external_bugs"}
+           "fields" : "flags, external_bugs, comments"}
    results = requests.post(config.server, data=values, verify=False).text
    results = simplejson.loads(results)
    return results
