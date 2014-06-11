@@ -25,7 +25,9 @@ def check_compliance(is_id, search, email=None, password=None, server=None):
    p = problem_checker.ProblemChecker(config)
    info, passed, ignored = p.find_problems(bugs)
    print "Found %d bug%s with problems" % (len(info), "s" if len(info) != 1 else "")
-   write_problems(info)
+   write_data(info, "compliance")
+   write_data(passed, "passed")
+   write_data(ignored, "ignored")
    return info, passed, ignored
    
 
@@ -34,6 +36,7 @@ def get_bugs(is_id, search):
            "id" : search if is_id else "",
            "url" : "" if is_id else search,
            "fields" : "flags, external_bugs, comments"}
+   
    results = requests.post(config.server, data=values, verify=False).text
    results = simplejson.loads(results)
    return results
@@ -55,13 +58,16 @@ def log_bugs(bugs):
    f.close()
 
 
-def write_problems(info):
+def write_data(info, name):
    if not config.write_logs: return
-   print "Writing compliance results."
+   print "Writing %s results." % name
    file_dir = str(os.path.dirname(os.path.abspath(__file__))) + "/"
-   f = open(file_dir + "logs/compliance.txt", "w")
+   f = open(file_dir + "logs/%s.txt" % name, "w")
    mod = [copy.copy(i) for i in info]
-   for i in mod: i["data"] = "ommited_info"
+   for i in mod:
+      i["data"] = "ommited_info"
+      i["clones"] = ", ".join(i["clones"])
+      i["parents"] = ", ".join(i["clones"])
    f.write(simplejson.dumps(mod, indent=2))
    f.flush()
    f.close()
@@ -70,4 +76,4 @@ def write_problems(info):
 if __name__ == "__main__":
    search = "https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&list_id=2495370&namedcmd=test2&remaction=run&sharer_id=367466"
    #search = "https://bugzilla.redhat.com/buglist.cgi?quicksearch=rhel%206&list_id=2498549"
-   check_compliance(False, True, search)
+   check_compliance(False, search)

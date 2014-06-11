@@ -1,4 +1,5 @@
 import inspect, re
+import extra_info as ei
 import config as cnfg
 
 class ProblemChecker:
@@ -174,16 +175,27 @@ class ProblemChecker:
       self.passed = []
       self.ignored = []
       
+      extra_info = ei.ExtraInfo(self.c)
+      
       #Go through all the bugs
       for bug in bugs["bugs"]:
-         #Ignore closed bugs
-         if self.c.ignore_closed_bugs and not bug["is_open"] == "True":
-            self.ignored.append(bug["id"])
-            continue
+         extra_info.add_have(bug)
          
          #Set class variables for use across functions
          self.__has_sales_force_case(bug)
          self.__get_nvr(bug)
+         
+         #Extra info if in zstream
+         if self.current_zstream:
+            for bug_id in bug["depends_on"]:
+               extra_info.add_need(bug_id)
+            for bug_id in bug["blocks"]:
+               extra_info.add_need(bug_id)
+
+         #Ignore closed bugs
+         if self.c.ignore_closed_bugs and not bug["is_open"] == "True":
+            self.__add_no_problem(bug, self.ignored)
+            continue
          
          #Apply all checks unless set to be ignored
          for check in self.checks:
@@ -192,7 +204,7 @@ class ProblemChecker:
 
          #No problems were added. It passed.
          if not bug["id"] in self.info:
-            self.passed.append(bug["id"])
+            self.__add_no_problem(bug, self.ignored)
       
       self.info = [self.info[bug] for bug in self.info]
       #Sort by: does it have problems, severity, priority, id
@@ -200,8 +212,18 @@ class ProblemChecker:
                                          self.severities[bug["data"]["severity"]],
                                          self.severities[bug["data"]["priority"]],
                                          bug["id"]))
-      self.passed.sort()
-      self.ignored.sort()
+      #Just sort by id
+      self.passed.sort(key = lambda bug: bug["id"])
+      self.ignored.sort(key = lambda bug: bug["id"])
+      
+      #Get extra information (parents and clones)
+      extra_info.get_info()
+      
+      #Associate extra info with correct bugs
+      self.__associate_info(extra_info, self.passed)
+      self.__associate_info(extra_info, self.ignored)
+      self.__associate_info(extra_info, self.info)
+      
       #Report back results
       return self.info, self.passed, self.ignored
 
@@ -253,3 +275,21 @@ class ProblemChecker:
          self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
                                   "parents": {}, "clones": {}, "status": 0}
       self.info[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
+      
+      
+   def __add_no_problem(self, bug, to_list):
+      to_list.append({"id": bug["id"], "data": bug, "parents": {}, "clones": {}})
+   
+   
+   def __associate_info(self, extra_info, to_list):
+      for bug in to_list:
+         data = bug["data"]
+         for bug_id in data["depends_on"]:
+            get_bug = extra_info.have[bug_id] if bug_id in extra_info.have else None
+            if get_bug and (data["summary"] in get_bug["summary"] or get_bug["summary"] in data["summary"]):
+               bug["parents"][bug_id] = get_bug
+         for bug_id in data["blocks"]:
+            get_bug = extra_info.have[bug_id] if bug_id in extra_info.have else None
+            if get_bug and (data["summary"] in get_bug["summary"] or get_bug["summary"] in data["summary"]):
+               bug["clones"][bug_id] = get_bug
+      
