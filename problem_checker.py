@@ -26,8 +26,8 @@ class ProblemChecker:
    ''' PROBLEM CHECKS GO HERE,   '''
    ''' AND MUST END WITH _pcheck '''
    ''' IN ORDER TO BE EXECUTED   '''
-   
-   def __uncloned_on_z_stream_missing_ack_pcheck(self, bug):
+
+   def __z_stream_clone_is_missing_acks(self, bug):
       if not self.current_sf or not self.current_zstream or "zstream" in [word.lower() for word in bug["keywords"]]: return
       pmack = False
       develack = False
@@ -43,28 +43,29 @@ class ProblemChecker:
                qaack = True               
       
       if not pmack or not develack or not qaack:
-         desc = ("this bug cannot move forward in the zstream process until it gets approval from PM, "
-                 "Dev, and QA. Please have the following flags set to approved (+) in order to meet "
-                 "this requirement:%s%s%s") % ("" if pmack else " pm_ack",
-                                               "" if develack else " devel_ack",
-                                               "" if qaack else " qa_ack")
-         self.__add_problem(bug, desc)
+         desc = ("zstream clones need to go through the same 3-ACK process that y-stream"
+                 "bugs go through. No action is needed here from Support Delivery; PM EUS"
+                 "will seek out these missing ACKS: %s%s%s") % ("" if pmack else " pm_ack",
+                                                                "" if develack else " devel_ack",
+                                                                "" if qaack else " qa_ack")
+         self.__add_warning(bug, desc)
 
 
-   def __uncloned_on_z_stream_but_not_flagged_for_a_current_version_pcheck(self, bug):
+   def __not_yet_cloned_for_zstream_and_not_flagged_for_current_version_pcheck(self, bug):
       if not self.current_sf or not self.current_zstream or "zstream" in [word.lower() for word in bug["keywords"]]: return
       for flag in self.current_nvr:
          if flag[1]: continue #Looking for non-zstream flags
-         if flag[0] in self.c.phases and self.c.phases[flag[0]] in ("Planning", "Pending"):
+         if flag[0] in self.c.phases and self.c.phases[flag[0]] in ("Planning", "Pending", "Development", "Testing"):
             #Check flag status
             if flag[2] == "+": return
-            desc = ("this bug is flagged for zstream, but its associated current version ("
-                    "%d.%d) is not ack-ed (+ status on flag).") % (flag[0][0], flag[0][1])
+            desc = ("this bug is flagged for zstream, but its NVR flag ("
+                    "%d.%d) does not have an ACK (+ status on flag)") % (flag[0][0], flag[0][1])
             self.__add_problem(bug, desc)
             return
-      desc = ("this bug is flagged for zstream, but does not have another flag for any "
-              "current version of RHEL. A current version flag is required for the bug "
-              "to move forward in the zstream process, so please add one.")
+      desc = ("this bug is flagged for zstream, but does not have an NVR ACK. This BZ"
+              "needs to be fully ACK'd for the next Y release and its status must be"
+              "'MODIFIED' before it can be cloned for zstream. Work with the SBR POC"
+              "for accelerated fixes to resolve this")
       self.__add_problem(bug, desc)        
          
    
@@ -81,23 +82,24 @@ class ProblemChecker:
       if not self.__req_sf() or not self.current_zstream: return
       if "GSSApproved" in bug["cf_internal_whiteboard"] or "PMApproved" in bug["cf_internal_whiteboard"]: return
       zflags = [flag[0] for flag in self.current_nvr if flag[1]]
-      desc = ("this bug is flagged for z-stream (%s) but it does not "
-              "contain the 'GSSApproved' tag on the internal whiteboard. "
-              "Please add this tag to make this bug compliant.") % ", ".join(["%d.%d.z" % (f[0], f[1]) for f in zflags])
+      desc = ("this bug is flagged for zstream (%s) but it does not "
+              "contain the text 'GSSApproved' on its internal whiteboard. "
+              "Please work with the SBR POC for accelerated fixes  to make "
+              "this bug compliant.") % ", ".join(["%d.%d.z" % (f[0], f[1]) for f in zflags])
       self.__add_problem(bug, desc)
       
       
    def __gss_approved_without_z_stream_flag_pcheck(self, bug):
       if not self.__req_sf() or  self.current_zstream: return
       if not "GSSApproved" in bug["cf_internal_whiteboard"]: return
-      desc = ("this bug contains the 'GSSApproved' tag on its internal whiteboard. "
-              "However, it has no z-stream flag set. Please either set the z-stream "
+      desc = ("this bug contains the text 'GSSApproved' on its internal whiteboard. "
+              "However, it has no z-stream NVR flag set. Please either set the z-stream "
               "flag for the appropriate version or remove the GSSApproved tag from the "
               "internal whiteboard.")
       self.__add_problem(bug, desc)      
          
 
-   def __on_tracker_without_corresponding_flag_set_pcheck(self, bug):
+   def __on_gss_tracker_without_corresponding_nvr_flag_set_pcheck(self, bug):
       if not self.__req_sf(): return
       for vers, tracker in self.c.trackers.iteritems():
          if tracker in bug["blocks"] and not any(vers == flag[0] for flag in self.current_nvr):
@@ -120,51 +122,55 @@ class ProblemChecker:
       
    def __nvr_flag_is_missing_pcheck(self, bug):
       if not self.__req_sf() or len(self.current_nvr) > 0: return
-      desc = ("bug does not have an NVR (name-version-revision) flag set; "
-              "add a flag in the form 'rhel-#.#.#' to resolve.")
+      desc = ("this bug does not have any NVR flag set; "
+              "add a flag in the form 'rhel-x.y.0' to resolve.")
       self.__add_problem(bug, desc)
 
 
    def __nvr_flag_is_outdated_pcheck(self, bug):
       #If has SF and at least 1 NVR flag
-      if self.__req_sf() and len(self.current_nvr) > 0:
-         has_a_current_flag = False
-         highest = self.current_nvr[0][0] #Keep track of highest NVR flag
-         for flag in self.current_nvr:
-            if flag[0][0] > highest[0] or (flag[0][0] == highest[0] and flag[0][1] > highest[1]):
-               highest = flag[0] 
-            if flag[0] in self.c.phases:
-               phase = self.c.phases[flag[0]]
-               if flag[1] or "Planning Phase" in phase or "Pending" in phase:
-                  has_a_current_flag = True
-         if not has_a_current_flag:
-            possible_flags = []
-            #Find suggestions for update flag
-            for vers, phase in self.c.phases.iteritems():
-               if "Planning Phase" in phase or "Pending" in phase:
-                  if vers[0] > highest[0] or (vers[0] == highest[0] and vers[1] > highest[1]):
-                     possible_flags.append(vers)
-            if possible_flags > 1:
-               possible_flags = [flag for flag in possible_flags if flag in self.c.trackers]
-            if len(self.current_nvr) > 1:
-               desc = "none of the NVR flags (highest=%d.%d) for this bug " % (highest[0], highest[1])
-            else:
-               desc = "the NVR flag for this bug (%d.%d) does not " % (highest[0], highest[1])
-            desc += "match any of the current appropriate versions of RHEL."
-            if possible_flags > 0:
-               possible_flags.sort()
-               desc += " Please add an NVR flag with one of the following versions: %s" % ", ".join(["%d.%d" % (v[0], v[1]) for v in possible_flags])
-            self.__add_problem(bug, desc)
+      if not self.__req_sf() or self.current_zstream or len(self.current_nvr) == 0: return
+      has_a_current_flag = False
+      highest = self.current_nvr[0][0] #Keep track of highest NVR flag
+      for flag in self.current_nvr:
+         if flag[0][0] > highest[0] or (flag[0][0] == highest[0] and flag[0][1] > highest[1]):
+            highest = flag[0] 
+         if flag[0] in self.c.phases:
+            phase = self.c.phases[flag[0]]
+            if flag[1] or "Planning Phase" in phase or "Pending" in phase:
+               has_a_current_flag = True
+      if not has_a_current_flag:
+         possible_flags = []
+         #Find suggestions for update flag
+         for vers, phase in self.c.phases.iteritems():
+            if "Planning Phase" in phase or "Pending" in phase:
+               if vers[0] > highest[0] or (vers[0] == highest[0] and vers[1] > highest[1]):
+                  possible_flags.append(vers)
+         if possible_flags > 1:
+            possible_flags = [flag for flag in possible_flags if flag in self.c.trackers]
+         if len(self.current_nvr) > 1:
+            desc = "none of the NVR flags (highest=%d.%d) for this bug " % (highest[0], highest[1])
+         else:
+            desc = "the NVR flag for this bug (%d.%d) does not " % (highest[0], highest[1])
+         desc += "match any of the current appropriate versions of RHEL."
+         if possible_flags > 0:
+            possible_flags.sort()
+            desc += " Please add an NVR flag with one of the following versions: %s" % ", ".join(["%d.%d" % (v[0], v[1]) for v in possible_flags])
+         self.__add_problem(bug, desc)
 
 
    def __priority_tag_is_not_set_pcheck(self, bug):
       if self.__req_sf() and "unspecified" in bug['priority']:
-         self.__add_problem(bug, "the priority tag for this bug is unspecified. Please set it.")
+         desc = ("the priority tag for this bug is unspecified. "
+                 "Please set it to match the associated SF case.")
+         self.__add_problem(bug, desc)
          
          
    def __severity_tag_is_not_set_pcheck(self, bug):
       if self.__req_sf() and "unspecified" in bug['severity']:
-         self.__add_problem(bug, "the severity tag for this bug is unspecified. Please set it.")
+         desc = ("the severity tag for this bug is unspecified. "
+                 "Please set it to match the associated SF case.")
+         self.__add_problem(bug, desc)
          
    ''' END OF PROBLEM CHECKS'''
 

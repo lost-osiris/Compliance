@@ -52,6 +52,7 @@ class ExtraInfo:
               "id" : ", ".join(self.need),
               "url" : "",
               "fields" : "flags, external_bugs, comments"}
+      print values
       results = requests.post(self.c.server, data=values, verify=False).text
       results = simplejson.loads(results)
       return results

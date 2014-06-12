@@ -24,10 +24,13 @@ def check_compliance(is_id, search, email=None, password=None, server=None):
 
    p = problem_checker.ProblemChecker(config)
    info, passed, ignored = p.find_problems(bugs)
+   
    print "Found %d bug%s with problems" % (len(info), "s" if len(info) != 1 else "")
+   
    write_data(info, "compliance")
    write_data(passed, "passed")
    write_data(ignored, "ignored")
+   
    return info, passed, ignored
    
 
@@ -67,13 +70,14 @@ def write_data(info, name):
    for i in mod:
       i["data"] = "ommited_info"
       i["clones"] = ", ".join(i["clones"])
-      i["parents"] = ", ".join(i["clones"])
+      i["parents"] = ", ".join(i["parents"])
    f.write(simplejson.dumps(mod, indent=2))
    f.flush()
    f.close()
 
 
 if __name__ == "__main__":
-   search = "https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&list_id=2495370&namedcmd=test2&remaction=run&sharer_id=367466"
+   #search = "https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&list_id=2495370&namedcmd=test2&remaction=run&sharer_id=367466"
    #search = "https://bugzilla.redhat.com/buglist.cgi?quicksearch=rhel%206&list_id=2498549"
-   check_compliance(False, search)
+   search = "1033136"
+   check_compliance(True, search)
