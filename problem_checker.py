@@ -91,7 +91,7 @@ class ProblemChecker:
       
    def __gss_approved_without_z_stream_flag_pcheck(self, bug):
       if not self.__req_sf() or  self.current_zstream: return
-      if not "GSSApproved" in bug["cf_internal_whiteboard"]: return
+      if not "GSSApproved" in bug["cf_internal_whiteboard"] or "ZStream" in bug["keywords"]: return
       desc = ("this bug contains the text 'GSSApproved' on its internal whiteboard. "
               "However, it has no z-stream NVR flag set. Please either set the z-stream "
               "flag for the appropriate version or remove the GSSApproved tag from the "
