@@ -27,7 +27,7 @@ class ProblemChecker:
    ''' AND MUST END WITH _pcheck '''
    ''' IN ORDER TO BE EXECUTED   '''
 
-   def __z_stream_clone_is_missing_acks(self, bug):
+   def __z_stream_clone_is_missing_acks_pcheck(self, bug):
       if not self.current_sf or not self.current_zstream or "zstream" in [word.lower() for word in bug["keywords"]]: return
       pmack = False
       develack = False
@@ -133,6 +133,7 @@ class ProblemChecker:
       has_a_current_flag = False
       highest = self.current_nvr[0][0] #Keep track of highest NVR flag
       for flag in self.current_nvr:
+         if flag[2] == "+": return #Okay if has ACK
          if flag[0][0] > highest[0] or (flag[0][0] == highest[0] and flag[0][1] > highest[1]):
             highest = flag[0] 
          if flag[0] in self.c.phases:
@@ -192,7 +193,7 @@ class ProblemChecker:
          self.__get_nvr(bug)
          
          #Extra info if in zstream
-         if self.current_zstream:
+         if self.current_zstream or "ZStream" in bug["keywords"]:
             for bug_id in bug["depends_on"]:
                extra_info.add_need(bug_id)
             for bug_id in bug["blocks"]:
@@ -210,7 +211,7 @@ class ProblemChecker:
 
          #No problems were added. It passed.
          if not bug["id"] in self.info:
-            self.__add_no_problem(bug, self.ignored)
+            self.__add_no_problem(bug, self.passed)
       
       self.info = [self.info[bug] for bug in self.info]
       #Sort by: does it have problems, severity, priority, id
