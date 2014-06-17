@@ -112,6 +112,7 @@ class ProblemChecker:
    def __flag_set_without_corresponding_tracker_pcheck(self, bug):
       if not self.__req_sf(): return
       for vers in self.current_nvr:
+         if vers[1]: continue
          vers = vers[0]
          if vers in self.c.trackers and not self.c.trackers[vers] in bug["blocks"]:
             desc = ("this bug has the %d.%d NVR flag set, but is not on the %d.%d GSS tracker (id=%s). "
