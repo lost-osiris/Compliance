@@ -7,9 +7,12 @@ import copy
 
 def check_compliance(is_id, search, email=None, password=None, server=None):
    global config
-   user_config = str(os.path.dirname(os.path.abspath(__file__))) + "/user_config.txt"
-   auto_config = str(os.path.dirname(os.path.abspath(__file__))) + "/auto_config.txt"
-   config = cnfg.Config(user_config, auto_config)
+   config = cnfg.Config("res")
+   
+   #Convert string NVRs to tuple of major and minor versions e.g.: 7.0 -> (7, 0)
+   config.phases = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.phases.iteritems()}
+   config.trackers = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.trackers.iteritems()}
+   config.zstream = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.zstream.iteritems()}
    
    if email: config.user_email = email
    if password: config.user_pass = password
@@ -46,7 +49,7 @@ def get_bugs(is_id, search):
 
 
 def read_bugs():
-   f = open(config.log_folder + "results.txt")
+   f = open(config.log_folder + "/results.txt")
    results = "\n".join(f.readlines())
    results = simplejson.loads(results)
    return results
@@ -55,7 +58,8 @@ def read_bugs():
 def log_bugs(bugs):
    if not config.write_logs: return
    print "Writing findbugs query results."
-   f = open(config.log_folder + "results.txt", "w")
+   path = str(os.path.dirname(os.path.abspath(__file__))) + "/"   
+   f = open(path + config.log_folder + "/results.txt", "w")
    f.write(simplejson.dumps(bugs, indent=2))
    f.flush()
    f.close()
@@ -63,14 +67,20 @@ def log_bugs(bugs):
 
 def write_data(info, name):
    if not config.write_logs: return
-   print "Writing %s results." % name
-   file_dir = str(os.path.dirname(os.path.abspath(__file__))) + "/"
-   f = open(file_dir + "logs/%s.txt" % name, "w")
+   
+   #Remove extra data from printed results (it's prettier)
    mod = [copy.copy(i) for i in info]
    for i in mod:
       i["data"] = "ommited_info"
       i["clones"] = ", ".join(i["clones"])
       i["parents"] = ", ".join(i["parents"])
+   
+   #Open correct file path
+   print "Writing %s results." % name
+   path = str(os.path.dirname(os.path.abspath(__file__))) + "/"   
+   f = open(path + config.log_folder + "/%s.txt" % name, "w")
+   
+   #Write and close
    f.write(simplejson.dumps(mod, indent=2))
    f.flush()
    f.close()
@@ -79,5 +89,5 @@ def write_data(info, name):
 if __name__ == "__main__":
    #search = "https://bugzilla.redhat.com/buglist.cgi?cmdtype=dorem&list_id=2495370&namedcmd=test2&remaction=run&sharer_id=367466"
    #search = "https://bugzilla.redhat.com/buglist.cgi?quicksearch=rhel%206&list_id=2498549"
-   search = "1033136"
+   search = "744882"
    check_compliance(True, search)

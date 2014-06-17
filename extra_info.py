@@ -1,4 +1,4 @@
-import simplejson, requests
+import simplejson, requests, os
 
 class ExtraInfo:
    
@@ -51,8 +51,7 @@ class ExtraInfo:
       values={"username" : self.c.user_email, "password" : self.c.user_pass,
               "id" : ", ".join(self.need),
               "url" : "",
-              "fields" : "flags, external_bugs, comments"}
-      print values
+              "fields" : "flags, external_bugs"}
       results = requests.post(self.c.server, data=values, verify=False).text
       results = simplejson.loads(results)
       return results
@@ -60,8 +59,8 @@ class ExtraInfo:
 
    def __log_bugs(self, bugs):
       if not self.c.write_logs: return
-      print "Writing findbugs query extra results."
-      f = open(self.c.log_folder + "extra_results.txt", "w")
+      path = str(os.path.dirname(os.path.abspath(__file__))) + "/"   
+      f = open(path + self.c.log_folder + "/extra_results.txt", "w")
       f.write(simplejson.dumps(bugs, indent=2))
       f.flush()
       f.close()

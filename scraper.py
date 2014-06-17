@@ -9,7 +9,8 @@ import sys
 url = "https://pp.engineering.redhat.com/pp/data/rhel/"
 server = "https://findbugs-seg.itos.redhat.com/"
 tracker_form = "GSS_*_*_proposed"
-phases = {"Planning", "Development", "Testing", "Launch", "Maintenance"}
+phases = ("Planning", "Development", "Testing", "Launch", "Maintenance")
+zphases = ("Development", "Kernel patch submission deadline", "QE", "Kernel GA Release")
 last_relavent_version = 5
 
 
@@ -48,8 +49,8 @@ def __get_highest_versions():
 
 def __refine_version_info():
    sys.stdout.write("Scraping specific version info...")
-   global version_data
-   version_data = {}
+   global got_info
+   got_info = {"phases": {}, "zstream": {}}
    
    #Format specifiers
    version_matcher = re.compile(r'\s\d+.\d+')
@@ -75,6 +76,8 @@ def __refine_version_info():
          kernal = None
          found = False     #Did a valid phase exist for a given sub version (not a bad webage)?
          inside = False    #Was the current date inside one of these phases?
+
+         key = str(major) + "." + str(minor)
 
          #Get and scroll through soup data
          soup = __get_soup(url + "rhel-%d-%d-0/" % (major, minor))
@@ -123,36 +126,34 @@ def __refine_version_info():
                   
                   #Set phase info if valid
                   if current_time < end:
-                     key = (major, minor)
-                     if not key in version_data:
-                        version_data[key] = []
-                     version_data[key].append(str(phase_name))
+                     if not key in got_info["phases"]:
+                        got_info["phases"][key] = []
+                     got_info["phases"][key].append(str(phase_name))
                      inside = True
                      
             #Find phase of z-stream
-            elif main_hier and hier_num.startswith(main_hier) and "Development" in phase_name:
-               this_kernal = int(hier_num.split(".")[3])
-               if current_time > datetime.datetime.strptime(info[3], date_format):
-                  continue
-               if this_kernal and kernal > this_kernal:
-                  continue
-               kernal = this_kernal
-                     
-         #Get z-stream dev kernal
-         if kernal:
-            version_data[(major, minor, "z")] = [kernal]
+            elif main_hier and hier_num.startswith(main_hier) and any(phase in phase_name for phase in zphases):
+               kernal = hier_num.split(".")[3]
+               if key not in got_info["zstream"]:
+                  got_info["zstream"][key] = {}
+               if kernal not in got_info["zstream"][key]:
+                  got_info["zstream"][key][kernal] = {}
+               
+               start = str(datetime.datetime.strptime(info[2], date_format))
+               end = str(datetime.datetime.strptime(info[3], date_format))
+               got_info["zstream"][key][kernal][phase_name] = (start, end)
             
          #Check that versions are still relevant            
          if found and not inside:
             #Version has yet to enter life-cycle
             if min_date > current_time:
-               if not (major, minor) in version_data:
-                  version_data[(major, minor)] = []
-               version_data[(major, minor)].append("Pending")  
+               if not key in got_info["phases"]:
+                  got_info["phases"][key] = []
+               got_info["phases"][key].append("Pending")  
                        
             #If seemingly irrelevant, check boundary case
             elif current_time > min_date and current_time < max_date:
-               print "Version %d.%d is not explicitly in any phase," % (major, minor)
+               print "Version %s is not explicitly in any phase," % key
                print "but the current date still falls within its lifecycle."
                print "Assuming %d.%d to be in %s." % (major, minor, closest_phase)
             else:
@@ -163,33 +164,35 @@ def __refine_version_info():
 
 
 def __add_pendings():
-   global version_data
+   global got_info
    #Make a list of versions that still need pending releases
    pendings = {} #Map of major versions to [boolean of whether pending release exists, highest vers]
-   for vers in version_data:
-      if not vers[0] in pendings:
-         pendings[vers[0]] = [False, vers[1]]
-      if vers[1] > pendings[vers[0]][1]:
-         pendings[vers[0]][1] = vers[1]
-      if "Pending" in version_data[vers]:
-         pendings[vers[0]][0] = True
+   for vers in got_info["phases"]:
+      tup = vers.split(".")
+      if not tup[0] in pendings:
+         pendings[tup[0]] = [False, tup[1]]
+      if tup[1] > pendings[tup[0]][1]:
+         pendings[tup[0]][1] = tup[1]
+      if "Pending" in got_info["phases"][vers]:
+         pendings[tup[0]][0] = True
    
    #Add the next version up if it needs pending
    for vers, tup in pendings.iteritems():
+      key = str(vers) + "." + str(int(tup[1]) + 1)
       if not tup[0]:
-         if not (vers, tup[1] + 1) in version_data:
-            version_data[(vers, tup[1] + 1)] = []
-         version_data[(vers, tup[1] + 1)].append("Pending")
+         if not key in got_info["phases"]:
+            got_info["phases"][key] = []
+         got_info["phases"][key].append("Pending")
          
 
 def __get_tracker_ids():
    sys.stdout.write("Getting tracker info...")
-   global trackers
+   global got_info
    trackers = {}
-   for version in version_data:
-      if len(version) > 2: continue #ignore zstream
-      track = tracker_form.replace("*", str(version[0]), 1)
-      track = track.replace("*", str(version[1]), 1)
+   for version in got_info["phases"]:
+      tup = version.split(".")
+      track = tracker_form.replace("*", tup[0], 1)
+      track = track.replace("*", tup[1], 1)
       values = {"username" : user_email, "password" : user_pass, "id" : track, "url" : "", "fields" : ""}
       result = requests.post(server, data=values, verify=False).text
       try:
@@ -200,23 +203,16 @@ def __get_tracker_ids():
       except:
          pass
          #print "Tracker for %s does not exist. Skipping." % track
+   got_info["trackers"] = trackers
    print "Done."
 
 
 def __update_config():
    #Make sure data has been scraped before we try to write it
-   global version_data, trackers
-   assert version_data and not trackers == None
+   global got_info
    sys.stdout.write("Writing config file...")
-   f = open("auto_config.txt", "w")
-   keys = version_data.keys()
-   keys.sort()
-   for version in keys:
-      s1 = ".".join([str(v) for v in version])
-      s2 = ", ".join([str(v) for v in version_data[version]])
-      f.write("%s=%s|%s\n" % (s1, s2, trackers[version] if version in trackers else ""))
-   f.flush()
-   f.close()
+   f = open("auto_config.json", "w")
+   f.write(simplejson.dumps(got_info, indent=2))
    print "Done."
 
 

@@ -1,0 +1,6 @@
+ {
+  "test_from_log_file": false,
+  "write_logs": true,
+  "user_email": "skramer@redhat.com",
+  "user_pass": "kramertest"
+}
