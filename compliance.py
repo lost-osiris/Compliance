@@ -10,9 +10,9 @@ def check_compliance(is_id, search, email=None, password=None, server=None):
    config = cnfg.Config("res")
    
    #Convert string NVRs to tuple of major and minor versions e.g.: 7.0 -> (7, 0)
-   config.phases = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.phases.iteritems()}
-   config.trackers = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.trackers.iteritems()}
-   config.zstream = {tuple(int(i) for i in key.split(".")): value for (key, value) in config.zstream.iteritems()}
+   config.phases = dict((tuple(int(i) for i in key.split(".")), value) for (key, value) in config.phases.iteritems())
+   config.trackers = dict((tuple(int(i) for i in key.split(".")), value) for (key, value) in config.trackers.iteritems())
+   config.zstream = dict((tuple(int(i) for i in key.split(".")), value) for (key, value) in config.zstream.iteritems())
    
    if email: config.user_email = email
    if password: config.user_pass = password
