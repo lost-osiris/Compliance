@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import simplejson
 import requests
-import re
+import re, os
 import datetime
 import sys
 
@@ -54,8 +54,10 @@ def __refine_version_info():
    
    #Format specifiers
    version_matcher = re.compile(r'\s\d+.\d+')
+   digits_matcher = re.compile(r'\d+')
    matcher = re.compile(r'^\d+.\d+$')
    date_format = "%a %Y-%m-%d"
+   out_format = "%m-%d-%Y"
    current_time = datetime.datetime.now()
    
    #Check each relavent highest version
@@ -64,7 +66,8 @@ def __refine_version_info():
       current = True
       
       #Go down the list of minor versions for each major version until we hit old useless data
-      while current and minor >= 0:
+      #while current and minor >= 0:
+      while minor >= 0:
          #These help watch for and handle weird boundary cases
          min_date = datetime.datetime.max
          max_date = datetime.datetime.min
@@ -73,7 +76,7 @@ def __refine_version_info():
          
          this_ver = None   #Tracks the hierarchy number of the info we're actually looking for
          main_hier = None  #Trackers the hierarchy number of the maintenance phase
-         kernal = None
+         kernel = None
          found = False     #Did a valid phase exist for a given sub version (not a bad webage)?
          inside = False    #Was the current date inside one of these phases?
 
@@ -108,10 +111,9 @@ def __refine_version_info():
                
                #Handle z-stream
                if "Maintenance" in phase_name:
-                  if current_time >= start and current_time < end:
-                     main_hier = hier_num
-                     found = True
-                     continue
+                  main_hier = hier_num
+                  found = True
+                  continue
                
                #Valid non-maintenance phase was found for this version
                min_date = start if start < min_date else min_date
@@ -132,16 +134,34 @@ def __refine_version_info():
                      inside = True
                      
             #Find phase of z-stream
-            elif main_hier and hier_num.startswith(main_hier) and any(phase in phase_name for phase in zphases):
-               kernal = hier_num.split(".")[3]
-               if key not in got_info["zstream"]:
-                  got_info["zstream"][key] = {}
-               if kernal not in got_info["zstream"][key]:
-                  got_info["zstream"][key][kernal] = {}
+            elif main_hier and hier_num.startswith(main_hier):
+               #Dates of kernel / kernel phase
+               start = datetime.datetime.strptime(info[2], date_format)
+               end = datetime.datetime.strptime(info[3], date_format)
+               start = start.strftime(out_format)
+               end = end.strftime(out_format)
                
-               start = str(datetime.datetime.strptime(info[2], date_format))
-               end = str(datetime.datetime.strptime(info[3], date_format))
-               got_info["zstream"][key][kernal][phase_name] = (start, end)
+               #Find digit matches in name (e.g. [2, 15] from "Kernel 2 - Kernel 15")
+               digs = [int(found) for found in digits_matcher.findall(phase_name)]
+               
+               #If name contains "kernel" and a kernel number
+               if "kernel" in phase_name.lower() and digs:
+                  #Set current kernel if only 1 digit found, but None if range found
+                  kernel = str(digs[0]) if len(digs) == 1 else None
+                  
+                  #Make room for this version (e.g. 7.0)
+                  if key not in got_info["zstream"]:
+                     got_info["zstream"][key] = {}
+   
+                  #Set start and end dates for range of kernels, or just 1 kernel if there's only 1
+                  for kvers in xrange(digs[0], digs[0] + 1 if kernel else digs[1] + 1):
+                     kvers = str(kvers)
+                     if kvers not in got_info["zstream"][key]:
+                        got_info["zstream"][key][kvers] = {"data": {}, "start": start, "end": end}
+               
+               #If phase data exists for the kernel, store it
+               if kernel and any(phase in phase_name for phase in zphases):               
+                  got_info["zstream"][key][kernel]["data"][phase_name] = (start, end)
             
          #Check that versions are still relevant            
          if found and not inside:
@@ -211,7 +231,8 @@ def __update_config():
    #Make sure data has been scraped before we try to write it
    global got_info
    sys.stdout.write("Writing config file...")
-   f = open("auto_config.json", "w")
+   path = str(os.path.dirname(os.path.abspath(__file__))) + "/"   
+   f = open(path + "res/auto_config.json", "w")
    f.write(simplejson.dumps(got_info, indent=2))
    print "Done."
 

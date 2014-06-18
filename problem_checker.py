@@ -1,11 +1,17 @@
 import inspect, re
 import extra_info as ei
 import config as cnfg
+import datetime
+from pip._vendor.requests.packages.urllib3.util.timeout import current_time
 
 class ProblemChecker:
 
+   digit_matcher = re.compile(r'\d+')
+   kernel_matcher = re.compile(r'ernel \d+')
    nvr_matcher = re.compile(r'rhel-(\d+).(\d+)')
    z_stream_matcher = re.compile(r'rhel-\d+.\d+.z')
+   current_time = datetime.datetime.now()
+   date_format = "%m-%d-%Y"
 
    severities = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "unspecified": 4}
 
@@ -90,7 +96,7 @@ class ProblemChecker:
       
       
    def __gss_approved_without_z_stream_flag_pcheck(self, bug):
-      if not self.__req_sf() or  self.current_zstream: return
+      if not self.__req_sf() or self.current_zstream: return
       if not "GSSApproved" in bug["cf_internal_whiteboard"] or "ZStream" in bug["keywords"]: return
       desc = ("this bug contains the text 'GSSApproved' on its internal whiteboard. "
               "However, it has no z-stream NVR flag set. Please either set the z-stream "
@@ -271,7 +277,7 @@ class ProblemChecker:
       bug_id = bug['id']
       if bug_id not in self.info:
          self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
-                                  "parents": {}, "clones": {}, "status": 0}
+                                  "parents": {}, "clones": {}, "zstream": self.__get_zstream(bug)}
       self.info[bug_id]["problems"].append({"id" : problem_id, "desc" : desc})
       
       
@@ -281,12 +287,60 @@ class ProblemChecker:
       bug_id = bug['id']
       if bug_id not in self.info:
          self.info[bug_id] = {"id": bug_id, "problems": [], "warnings": [], "data": bug,
-                                  "parents": {}, "clones": {}, "status": 0}
+                                  "parents": {}, "clones": {}, "zstream": self.__get_zstream(bug)}
       self.info[bug_id]["warnings"].append({"id" : warning_id, "desc" : desc})
       
       
    def __add_no_problem(self, bug, to_list):
-      to_list.append({"id": bug["id"], "data": bug, "parents": {}, "clones": {}})
+      to_list.append({"id": bug["id"], "data": bug, "parents": {}, "clones": {}, "zstream": self.__get_zstream(bug)})
+   
+   
+   def __get_zstream(self, bug):
+      #Empty dictionary if not in zstream
+      if not self.current_zstream or not "true" in bug["is_open"].lower():
+         return {}
+      #Find z-stream NVR
+      for flag in self.current_nvr:
+         if flag[1]:
+            #Look for "kernel" on dev whiteboard
+            matches = self.kernel_matcher.findall(bug["cf_devel_whiteboard"])
+            vers = flag[0]
+            kern = None
+            defined = False
+            
+            #If kernel number exists on internel dev whiteboard, use that
+            if len(matches) > 0:
+               kern = int(self.digit_matcher.findall(matches[0])[0])
+               defined = True
+               
+            elif vers not in self.c.zstream:
+               print "ERROR: Version %s not in cached zstream data." % str(vers)
+               return {}
+            
+            #Else get most recent kernel for zstream version
+            else:
+               for key, data in self.c.zstream[vers].iteritems():
+                  key = int(key)
+                  if not kern or key > kern:
+                     if self.current_time <= datetime.datetime.strptime(data["end"], self.date_format):
+                        if self.current_time >= datetime.datetime.strptime(data["start"], self.date_format):
+                           kern = key
+               if not kern:
+                  print "ERROR: No current zstream kernel found for version %s" % vers
+                  
+            #Populate return data for found kernel   
+            if str(kern) not in self.c.zstream[vers]:
+               print "ERROR: Kernel %d not found in version %s" % (kern, str(vers))
+               return {}
+            data = self.c.zstream[vers][str(kern)]
+            data = {"kernel": kern,
+                    "version": ".".join((str(vers[0]), str(vers[1]))),
+                    "start": data["start"],
+                    "end": data["end"],
+                    "data": data["data"],
+                    "defined": defined}
+            return data
+      return {}
    
    
    def __associate_info(self, extra_info, to_list):
