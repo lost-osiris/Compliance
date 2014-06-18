@@ -2,7 +2,6 @@ import inspect, re
 import extra_info as ei
 import config as cnfg
 import datetime
-from pip._vendor.requests.packages.urllib3.util.timeout import current_time
 
 class ProblemChecker:
 
