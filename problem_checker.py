@@ -199,11 +199,11 @@ class ProblemChecker:
          self.__get_nvr(bug)
          
          #Extra info if in zstream
-         if self.current_zstream or "ZStream" in bug["keywords"]:
-            for bug_id in bug["depends_on"]:
-               extra_info.add_need(bug_id)
-            for bug_id in bug["blocks"]:
-               extra_info.add_need(bug_id)
+         #if self.current_zstream or "ZStream" in bug["keywords"]:
+         for bug_id in bug["depends_on"]:
+            extra_info.add_need(bug_id)
+         for bug_id in bug["blocks"]:
+            extra_info.add_need(bug_id)
 
          #Ignore closed bugs
          if self.c.ignore_closed_bugs and not bug["is_open"] == "True":
