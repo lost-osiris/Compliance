@@ -1,16 +1,16 @@
 [
   {
-    "status": 0,
-    "parents": "829739",
+    "parents": "829739", 
     "warnings": [
       {
-        "id": "No Relevant Sales Force Case",
+        "id": "No Relevant Sales Force Case", 
         "desc": "this bug is not associated with any of the Sales Force cases that this compliance filter is set up to handle (Red Hat Customer Portal, Red Hat Knowledge Base). If this is by mistake, attach an appropriate SF case and reanalyze for the complete list of problems."
       }
-    ],
-    "clones": "891564, 882205",
-    "data": "ommited_info",
-    "problems": [],
+    ], 
+    "clones": "891564, 882205", 
+    "data": "ommited_info", 
+    "problems": [], 
+    "zstream": {}, 
     "id": "1033136"
   }
 ]

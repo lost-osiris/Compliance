@@ -5,7 +5,7 @@ import problem_checker
 import os
 import copy
 
-def check_compliance(is_id, search, email=None, password=None, server=None):
+def check_compliance(is_id, search, email=None, password=None, server=None, results=None):
    global config
    config = cnfg.Config("res")
    
@@ -19,7 +19,9 @@ def check_compliance(is_id, search, email=None, password=None, server=None):
    if server: config.server = server
    
    #For testing/debugging
-   if config.test_from_log_file:
+   if results != "" and is_id == False:
+      bugs = results
+   elif config.test_from_log_file:
       bugs = read_bugs()
    else:
       bugs = get_bugs(is_id, search)
