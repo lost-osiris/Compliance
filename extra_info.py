@@ -68,7 +68,7 @@ class ExtraInfo:
       
       
    def __read_bugs(self):
-      f = open(self.c.log_folder + "extra_results.txt")
+      f = open(self.c.log_folder + "/extra_results.txt")
       results = "\n".join(f.readlines())
       results = simplejson.loads(results)
       return results      
